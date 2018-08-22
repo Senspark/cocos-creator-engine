@@ -113,8 +113,50 @@ var spineAssembler = {
     _readAttachmentData (comp, attachment, slot, premultipliedAlpha, renderData, dataOffset) {
         // the vertices in format:
         // X1, Y1, C1R, C1G, C1B, C1A, U1, V1
-        // get the vertex data
-        let vertices = attachment.updateWorldVertices(slot, premultipliedAlpha);
+        let vertices = [];
+
+        if (old_spine) {
+            // Spine version 3.5.35
+            // get the vertex data
+            vertices = attachment.updateWorldVertices(slot, premultipliedAlpha);
+        } else {
+            // Spine version 3.6
+            const bone = slot.bone;
+            const skeleton = bone.skeleton;
+            const skeletonColor = skeleton.color;
+            const slotColor = slot.color;
+            const attachmentColor = attachment.color;
+            const alpha = skeletonColor.a * slotColor.a * attachmentColor.a;
+            const multiplier = premultipliedAlpha ? alpha : 1;
+            const colorR = skeletonColor.r * slotColor.r * attachmentColor.r * multiplier;
+            const colorG = skeletonColor.g * slotColor.g * attachmentColor.g * multiplier;
+            const colorB = skeletonColor.b * slotColor.b * attachmentColor.b * multiplier;
+
+            const components = 8;
+            if (attachment instanceof spine.RegionAttachment) {
+                const verticesLength = 4 * components;
+                spine.Utils.setArraySize(vertices, verticesLength, 0);
+                attachment.computeWorldVertices(bone, vertices, 0, components);
+            } else {
+                const verticesLength = attachment.worldVerticesLength;
+                spine.Utils.setArraySize(vertices, verticesLength / 2 * components, 0);
+                attachment.computeWorldVertices(slot, 0, verticesLength, vertices, 0, components);
+            }
+
+            // Update colors.
+            for (let i = 0, n = vertices.length; i < n; i += components) {
+                vertices[i + 2] = colorR;
+                vertices[i + 3] = colorG;
+                vertices[i + 4] = colorB;
+                vertices[i + 5] = alpha;
+            }
+            // Update uvs.
+            for (let i = 0, j = 0, n = vertices.length; i < n; i += components, j += 2) {
+                vertices[i + 6] = attachment.uvs[j];
+                vertices[i + 7] = attachment.uvs[j + 1];
+            }
+        }
+
         let vertexCount = vertices.length / 8;
         // augment render data size to ensure capacity
         renderData.dataLength += vertexCount;
