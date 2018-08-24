@@ -111,6 +111,8 @@ var spineAssembler = {
     useModel: true,
 
     _readAttachmentData (comp, attachment, slot, premultipliedAlpha, renderData, dataOffset) {
+        const old_spine = typeof attachment.updateWorldVertices !== 'undefined';
+
         // the vertices in format:
         // X1, Y1, C1R, C1G, C1B, C1A, U1, V1
         let vertices = [];
